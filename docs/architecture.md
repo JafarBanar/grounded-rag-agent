@@ -17,14 +17,17 @@ flowchart LR
         R --> I[(Hybrid index<br/>BM25 + embeddinggemma vectors)]
     end
     subgraph Agent["Agent (per question)"]
-        Q[Question] --> L{{Gemma 4 tool loop}}
+        Q[Question] --> P[Plan: 1-4 search queries<br/>structured JSON]
+        P --> L{{Gemma 4 tool loop}}
         L -- search --> I
         L -- read --> I
         L -- follow_refs --> I
         L --> D[Draft answer]
         D --> V[Citation check<br/>groundcite + evidence ledger]
-        V -- pass --> A[Answer with citations]
-        V -- fail --> F[One repair round]
+        V -- pass --> K[Claim check, optional<br/>each sentence vs its source]
+        K -- pass --> A[Answer with citations]
+        K -- fail --> F
+        V -- fail --> F[Repair round, max 2]
         F --> L
         V -- still failing --> X[Refusal, listing what was checked]
     end
@@ -60,20 +63,28 @@ units, so results stay specific.
 
 ## The agent loop
 
-1. The system prompt states the rules: search first, read what you rely on, follow
-   references, cite every sentence, answer `NOT FOUND:` when the documents do not answer.
-2. Gemma 4 calls tools through Ollama's native tool calling. Each tool returns short text
-   with unit ids, and records which units the model has seen (the **evidence ledger**).
+1. **Plan.** One call with a JSON schema as the output format splits the question into 1 to 4
+   search queries. This fixed the main failure of earlier versions: answering the first half of
+   a two-part question and stopping.
+2. **Tool loop.** The system prompt states the rules: search first, read what you rely on,
+   follow references, cite every sentence, answer `NOT FOUND:` when the documents do not
+   answer, and end a partial answer with one `Not shown in the documents:` sentence. Gemma 4
+   calls tools through Ollama's native tool calling. Each tool returns short text with unit
+   ids and records which units the model has seen (the **evidence ledger**).
 3. If the model answers before using any tool, it is told to search first (a nudge; this
    does not use up a repair round).
-4. The draft is checked:
+4. **Citation check** on the draft:
+   * the answer must not be empty and must cite at least one unit,
    * every citation must exist in the corpus (no invented ids),
    * every citation must be in the evidence ledger (or be a parent or child of a unit in it),
    * at least `min_coverage` of the factual sentences must carry a citation (counted by
-     `groundcite`).
-5. On failure the problems go back to the model for one repair round. If it still fails, the
-   user gets a refusal that lists the provisions that were checked, never the unverified draft.
-6. Budgets: at most 12 tool calls and 8 model steps per question.
+     `groundcite`; the gap sentence is not counted).
+5. **Claim check** (`verify: true` in the corpus config): one structured call compares each
+   cited sentence with the text of the units it cites and lists the unsupported ones.
+6. On failure the problems go back to the model, for up to `repair_attempts` rounds (2 by
+   default in the shipped configs). If it still fails, the user gets a refusal that lists the
+   provisions that were checked, never the unverified draft.
+7. Budgets: at most 12 tool calls and 8 model steps per question.
 
 ## Why a citation check in code
 
@@ -82,6 +93,13 @@ memory. Those answers look correct. The check makes that failure visible and tur
 refusal. During development the check also caught a bug in the sentence splitter of
 `groundcite`: it cut `[GDPR Art. 22(1)]` at "Art." and counted the sentence as uncited. The
 engine protects bracketed citations before checking.
+
+The citation check has a known limit: it proves a cited unit was retrieved, not that the
+sentence says what the unit says. On private documents this let one wrong answer through (a
+colleague's work credited to the user, from a section that ingestion had filled with the wrong
+table). The claim check in step 5 is the second line of defence for that class of error.
+The evaluation also found a hole in the check itself: an empty reply has no uncited
+sentences, so it passed. Empty and citation-free answers now fail.
 
 ## Baseline for comparison
 

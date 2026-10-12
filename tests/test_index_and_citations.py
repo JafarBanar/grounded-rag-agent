@@ -51,6 +51,11 @@ def test_uncited_sentence_fails_coverage(index):
     assert not check(ans, index, {"AI Act Art. 6(2)"}, min_coverage=1.0)["ok"]
 
 
+def test_empty_or_uncited_answer_fails(index):
+    assert check("", index, {"AI Act Art. 6(2)"})["problems"] == ["the answer is empty"]
+    assert not check("Annex III systems are high-risk.", index, {"AI Act Art. 6(2)"}, min_coverage=0.0)["ok"]
+
+
 def test_vectors_must_match_searchable_units(units):
     import numpy as np
     import pytest

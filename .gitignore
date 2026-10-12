@@ -9,3 +9,4 @@ corpora/private.yaml
 eval/results/*/runs_*.jsonl
 .DS_Store
 *.bak
+.claude/

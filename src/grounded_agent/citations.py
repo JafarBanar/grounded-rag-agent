@@ -104,9 +104,12 @@ def check(answer: str, index: HybridIndex, retrieved: set[str], min_coverage: fl
     problems = list(report.problems)
     if invented:
         problems.append("citations that do not exist in the corpus: " + ", ".join(invented))
+    if not report.cited_refs:
+        # An empty reply has no uncited sentences, so coverage alone would pass it.
+        problems.append("the answer is empty" if not answer.strip() else "the answer cites no source")
     by_canon = {canon(u.id): u.id for u in index.units}
     return {
-        "ok": report.ok and not invented,
+        "ok": report.ok and not invented and bool(report.cited_refs),
         "problems": problems,
         "cited": [by_canon.get(r, r) for r in report.cited_refs],
         "unresolved": [by_canon.get(r, r) for r in report.unresolved_refs],
