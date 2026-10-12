@@ -18,16 +18,31 @@ shall such which may any other where those these their there be been being not n
 whose whom also only all each per more most can could should would""".split())
 
 
+def stem(t: str) -> str:
+    """Light, predictable suffix stripping: application/applies/applied -> apply, notifications -> notify."""
+    if any(ch.isdigit() for ch in t) or len(t) <= 4:
+        return t
+    for suf, rep in (("ications", "y"), ("ication", "y"), ("ies", "y"), ("ied", "y"), ("sses", "ss")):
+        if t.endswith(suf) and len(t) - len(suf) >= 3:
+            return t[: -len(suf)] + rep
+    if t.endswith("s") and not t.endswith(("ss", "us", "is")):
+        t = t[:-1]
+    for suf in ("ing", "ed"):
+        if t.endswith(suf) and len(t) - len(suf) >= 4:
+            return t[: -len(suf)]
+    return t
+
+
 def tokenize(text: str) -> list[str]:
-    """Lower-case word tokens; keeps codes such as 2016/679 and high-risk intact, drops stop words."""
+    """Lower-case, lightly stemmed word tokens; keeps codes such as 2016/679 and high-risk intact, drops stop words."""
     toks = _TOKEN.findall(text.lower())
     out = []
     for t in toks:
         if t in STOP or len(t) == 1:
             continue
-        out.append(t)
+        out.append(stem(t))
         if "-" in t:                      # "high-risk" also matches "high risk"
-            out.extend(p for p in t.split("-") if p and p not in STOP)
+            out.extend(stem(p) for p in t.split("-") if p and p not in STOP)
     return out
 
 
@@ -75,8 +90,12 @@ class HybridIndex:
             if u.parent:
                 self.children[u.parent].append(u.id)
         # Search over citable leaves and recitals; whole articles/annexes are for reading.
-        self.search_ids = [i for i, u in enumerate(units) if u.kind not in ("article", "annex")]
+        self.search_ids = [i for i, u in enumerate(units)
+                           if u.kind not in ("article", "annex") or not self.children.get(u.id)]
         self.bm25 = BM25().fit([tokenize(f"{units[i].title} {units[i].text}") for i in self.search_ids])
+        if vectors is not None and len(vectors) != len(self.search_ids):
+            raise ValueError(f"index vectors ({len(vectors)}) do not match searchable units ({len(self.search_ids)}); "
+                             "rebuild with `gra build <corpus>`")
         self.vectors = vectors
 
     # ----------------------------------------------------------- persistence
@@ -101,7 +120,7 @@ class HybridIndex:
 
     # ----------------------------------------------------------- search
     def search(self, query: str, k: int = 6, embed_fn=None, doc: str | None = None,
-               query_prefix: str = "task: search result | query: ", rrf_k: int = 60) -> list[Hit]:
+               query_prefix: str = "task: search result | query: ", rrf_k: int = 60, per_method: int = 2) -> list[Hit]:
         """Hybrid search with reciprocal-rank fusion. Falls back to BM25 when no vectors."""
         bm = self.bm25.scores(tokenize(query))
         ranked_lists = [np.argsort(-bm)[:200]]
@@ -117,6 +136,14 @@ class HybridIndex:
                     break
                 fused[int(j)] += 1.0 / (rrf_k + r + 1)
         order = sorted(fused, key=lambda j: -fused[j])
+        # A strong winner of one method can lose in plain RRF when the other method ranks it low;
+        # always keep the top `per_method` of each list, then fill by fused score.
+        lead: list[int] = []
+        for lst in ranked_lists:
+            for j in lst[:per_method]:
+                if int(j) in fused and int(j) not in lead:
+                    lead.append(int(j))
+        order = lead + [j for j in order if j not in lead]
         hits: list[Hit] = []
         shown_parents: set[str] = set()
         for j in order:

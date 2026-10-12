@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from .agent import NOT_FOUND, Result, refusal_text
-from .citations import check
+from .citations import check, expand_multi_citations
 from .config import CorpusConfig
 from .index import HybridIndex
 from .llm import OllamaClient
@@ -47,6 +47,7 @@ class Workflow:
             res.validation = rep
             if rep["ok"]:
                 res.status, res.cited = "answered", rep["cited"]
+                res.answer = expand_multi_citations(answer, sorted({u.doc for u in self.index.units}))
             else:
                 res.status, res.answer = "refused", refusal_text(sorted(retrieved))
         res.seconds = round(time.perf_counter() - t0, 2)

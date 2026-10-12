@@ -128,7 +128,9 @@ def parse_act(path: Path, doc: str) -> list[Unit]:
             if len(numbered) >= 3:
                 intro = " ".join(t for n, t in points if n == "0")
                 for n, t in numbered:
-                    units.append(Unit(id=f"{art_id}({n})", doc=doc, kind="point", title=title,
+                    term = re.match(r"[‘'\"]([^’'\"]{2,80})[’'\"]\s+means", t)
+                    ptitle = f"Definition of '{term.group(1)}'" if (term and title.lower().startswith("definition")) else title
+                    units.append(Unit(id=f"{art_id}({n})", doc=doc, kind="point", title=ptitle,
                                       text=(f"{intro} ({n}) {t}" if intro else t), parent=art_id, source=src))
             full = " ".join(blocks)
         units.append(Unit(id=art_id, doc=doc, kind="article", title=title, text=full, source=src))

@@ -30,6 +30,35 @@ def canon(ref: str) -> str:
 PROTECT = ".\u2060"  # period + word joiner (not whitespace)
 
 
+_DOC_START = None  # set lazily from the index: names of the documents, e.g. ("AI Act", "GDPR")
+
+
+def expand_multi_citations(text: str, docs: list[str]) -> str:
+    """Rewrite "[A, B]" as "[A][B]" and "[X(a), (b)]" as "[X(a)][X(b)]" so each id is checked on its own."""
+    doc_alt = "|".join(re.escape(d) for d in sorted(docs, key=len, reverse=True)) or r"\w+"
+
+    def fix(m: re.Match) -> str:
+        inner = m.group(1)
+        if not re.search(r"[,;]", inner):
+            return m.group(0)
+        parts = [p.strip() for p in re.split(r"\s*[,;]\s*|\s+and\s+", inner) if p.strip()]
+        out, last_full = [], None
+        for p in parts:
+            if re.match(rf"^({doc_alt})\b", p, re.IGNORECASE):
+                last_full = p
+                out.append(p)
+            elif last_full and re.match(r"^\(?[0-9a-z]{1,3}\)?$", p, re.IGNORECASE):
+                # "(b)" continues the previous id: replace its last parenthesised part
+                tail = p if p.startswith("(") else f"({p})"
+                base = re.sub(r"\([0-9a-z]{1,3}\)$", "", last_full, flags=re.IGNORECASE)
+                out.append(base + tail)
+            else:
+                return m.group(0)       # not a list of ids: leave untouched
+        return "".join(f"[{o}]" for o in out)
+
+    return re.sub(r"\[([^\[\]\n]{2,300})\](?!\()", fix, text)
+
+
 def protect_citations(text: str) -> str:
     return re.sub(r"\[[^\[\]\n]{2,140}\]", lambda m: m.group(0).replace(". ", PROTECT), text)
 
@@ -59,6 +88,7 @@ def allowed_ids(index: HybridIndex, retrieved: set[str]) -> set[str]:
 def check(answer: str, index: HybridIndex, retrieved: set[str], min_coverage: float = 0.8) -> dict:
     """Return a report dict: ok flag, problems, cited ids, invented ids, coverage."""
     allowed = allowed_ids(index, retrieved)
+    answer = expand_multi_citations(answer, sorted({u.doc for u in index.units}))
     report = validate(protect_citations(answer), [canon(a) for a in allowed], pattern=BRACKET, min_coverage=min_coverage)
     known = {canon(u.id) for u in index.units}
     invented = [r for r in report.cited_refs if r not in known]

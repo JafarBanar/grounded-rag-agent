@@ -49,3 +49,24 @@ def test_reading_an_article_allows_its_paragraphs(index):
 def test_uncited_sentence_fails_coverage(index):
     ans = "Annex III systems are high-risk [AI Act Art. 6(2)]. They also need a conformity assessment before sale."
     assert not check(ans, index, {"AI Act Art. 6(2)"}, min_coverage=1.0)["ok"]
+
+
+def test_vectors_must_match_searchable_units(units):
+    import numpy as np
+    import pytest
+    from grounded_agent.index import HybridIndex
+    with pytest.raises(ValueError):
+        HybridIndex(units, vectors=np.zeros((1, 4), dtype=np.float32))
+
+
+def test_multi_id_brackets_are_checked_one_by_one(index):
+    from grounded_agent.citations import expand_multi_citations
+    assert expand_multi_citations("x [AI Act Art. 6(1), AI Act Art. 6(2)].", ["AI Act"]) == "x [AI Act Art. 6(1)][AI Act Art. 6(2)]."
+    assert expand_multi_citations("y [AI Act Annex III(2)(a), (b)].", ["AI Act"]) == "y [AI Act Annex III(2)(a)][AI Act Annex III(2)(b)]."
+    rep = check("Annex III systems are high-risk [AI Act Art. 6(1), AI Act Art. 6(2)].", index, {"AI Act Art. 6"}, 1.0)
+    assert rep["ok"], rep["problems"]
+
+
+def test_stemming_matches_word_forms():
+    from grounded_agent.index import stem
+    assert stem("application") == stem("applies") == stem("applied") == "apply"

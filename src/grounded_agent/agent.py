@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from .citations import check
+from .citations import check, expand_multi_citations
 from .config import CorpusConfig
 from .index import HybridIndex
 from .llm import OllamaClient
@@ -27,10 +27,10 @@ NOT_FOUND = "NOT FOUND:"
 SYSTEM = """You are a careful research assistant. The documents are: {description}
 
 Rules:
-1. Use the tools to find evidence before you answer. Search with short, specific queries, read the provisions you rely on, and use follow_refs when a provision points to another one (for example an annex or another article).
+1. Use the tools to find evidence before you answer. Search with short, specific queries. When a search result is one paragraph or point of an article that looks relevant, read the whole article (for example read "AI Act Art. 50") so you see all of it. Use follow_refs when a provision points to another one (for example an annex or another article).
 2. Before you answer, check that the retrieved text directly answers every part of the question. If a part is not directly answered, search again with different words (synonyms, the legal term, the article topic) before giving up. Questions with two parts usually need at least two searches.
 3. Answer only from text the tools returned in this conversation. Never answer from memory.
-4. End every factual sentence with the id of its source in square brackets, exactly as the tools show it, for example {citation_example}. You may cite two ids for one sentence.
+4. End every factual sentence with the id of its source in square brackets, exactly as the tools show it, for example {citation_example}. Put one id in each bracket; for two sources write [id one][id two].
 5. If, after searching, the documents do not answer the question, reply with "{not_found}" followed by one sentence saying what you searched for. Do not write an answer that only says what the documents do not contain.
 6. Be concise and direct: a short answer first, then the supporting points. No headings.
 {extra}"""
@@ -157,7 +157,7 @@ class Agent:
         res.draft = answer
         res.retrieved = sorted(tools.retrieved)
         if res.status == "answered":
-            res.answer = answer
+            res.answer = expand_multi_citations(answer, sorted({u.doc for u in self.index.units}))
         elif res.status == "not_found":
             res.answer = answer
         else:
