@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.25,<1.28"]
+build-backend = "hatchling.build"
+
+[project]
+name = "grounded-rag-agent"
+version = "0.1.0"
+description = "Agentic RAG that runs fully on local models and cites every claim, or refuses."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{name = "Jafar Banar"}]
+dependencies = ["numpy", "httpx", "pyyaml", "beautifulsoup4", "lxml", "pypdf", "python-docx", "groundcite>=0.1.0",
+                "fastapi", "uvicorn[standard]", "mcp>=2"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+gra = "grounded_agent.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/grounded_agent"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+filterwarnings = ["ignore::bs4.XMLParsedAsHTMLWarning"]

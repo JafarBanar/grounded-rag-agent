@@ -1,0 +1,14 @@
+# Public demo corpus: the EU AI Act and the GDPR, official texts from the EU Publications Office.
+name: eu_ai_law
+description: >-
+  The EU Artificial Intelligence Act (Regulation (EU) 2024/1689) and the General Data
+  Protection Regulation (Regulation (EU) 2016/679): articles with paragraphs and points,
+  annexes and recitals.
+citation_example: "[AI Act Art. 6(2)]"
+sources:
+  - {path: data/raw/32024R1689.xhtml, doc: "AI Act", kind: eurlex}
+  - {path: data/raw/32016R0679.xhtml, doc: "GDPR", kind: eurlex}
+model: gemma4:e4b
+embed_model: embeddinggemma
+extra_rules:
+  - "Recitals explain intent but do not create obligations; prefer articles and annexes when stating what the law requires."

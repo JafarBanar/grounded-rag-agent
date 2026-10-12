@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grounded RAG Agent</title>
+<style>
+:root {
+  --bg: #f7f8fa; --panel: #ffffff; --ink: #14191f; --muted: #5b6672; --line: #dde2e8;
+  --accent: #2b5d8c; --accent-soft: #e6eff8; --ok: #2e7d4f; --ok-soft: #e3f3e8;
+  --warn: #9a6a16; --warn-soft: #fbf0dc; --bad: #a33a2e; --bad-soft: #fbe5e2;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1318; --panel: #171c22; --ink: #e6eaee; --muted: #9aa5b1; --line: #2a313a;
+    --accent: #7fb0e0; --accent-soft: #1b2a3a; --ok: #6cc28f; --ok-soft: #12261b;
+    --warn: #e0b060; --warn-soft: #2a2110; --bad: #e88878; --bad-soft: #2d1714;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 -apple-system, "Segoe UI", Arial, sans-serif; }
+header { padding: 18px 24px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { margin: 0; font-size: 20px; }
+header p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; padding: 18px 24px; max-width: 1400px; margin: 0 auto; }
+@media (max-width: 960px) { main { grid-template-columns: 1fr; padding: 14px 16px; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+textarea { width: 100%; min-height: 76px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit; background: var(--bg); color: var(--ink); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+select, button { font: inherit; border-radius: 8px; border: 1px solid var(--line); padding: 7px 12px; background: var(--panel); color: var(--ink); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); cursor: pointer; }
+button.primary:disabled { opacity: .55; cursor: default; }
+.examples { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.examples button { font-size: 12.5px; padding: 4px 9px; cursor: pointer; color: var(--muted); }
+h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
+#answer { white-space: pre-wrap; }
+#answer .cite { display: inline-block; font: 12px var(--mono); background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 0 5px; margin: 0 1px; cursor: pointer; }
+.status { display: inline-block; font-size: 12.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+.status.answered { background: var(--ok-soft); color: var(--ok); }
+.status.not_found, .status.refused { background: var(--warn-soft); color: var(--warn); }
+.status.error { background: var(--bad-soft); color: var(--bad); }
+.meta { color: var(--muted); font-size: 13px; margin-top: 8px; }
+ol.steps { list-style: none; margin: 0; padding: 0; }
+ol.steps li { border-left: 2px solid var(--line); padding: 4px 0 8px 12px; position: relative; font-size: 13.5px; }
+ol.steps li::before { content: ""; position: absolute; left: -6px; top: 9px; width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+ol.steps li.tool_call::before { background: var(--accent); }
+ol.steps li.validation.ok::before { background: var(--ok); }
+ol.steps li.validation.fail::before, ol.steps li.repair::before { background: var(--bad); }
+ol.steps .t { color: var(--muted); font: 11.5px var(--mono); margin-right: 6px; }
+ol.steps code { font: 12px var(--mono); }
+.ids { color: var(--muted); font: 12px var(--mono); }
+#unit h3 { margin: 0 0 4px; font-size: 15px; }
+#unit .title { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+#unit .text { white-space: pre-wrap; font-size: 13.5px; max-height: 60vh; overflow: auto; }
+.empty { color: var(--muted); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Grounded RAG Agent</h1>
+  <p>An agent on a local model that searches, reads and follows references, then answers with a citation on every claim, or refuses. Every citation is checked in code.</p>
+</header>
+<main>
+  <section>
+    <div class="card">
+      <textarea id="q" placeholder="Ask a question about the documents"></textarea>
+      <div class="row">
+        <select id="corpus"></select>
+        <select id="mode"><option value="agent">Agent</option><option value="workflow">Retrieve-once RAG (baseline)</option></select>
+        <button class="primary" id="go">Ask</button>
+        <span class="meta" id="model"></span>
+      </div>
+      <div class="examples" id="examples"></div>
+    </div>
+    <h2>Answer</h2>
+    <div class="card"><div id="answer" class="empty">The answer appears here.</div><div class="meta" id="resmeta"></div></div>
+    <h2>Agent steps</h2>
+    <div class="card"><ol class="steps" id="steps"><li class="empty">Search, read and validation steps appear here as they happen.</li></ol></div>
+  </section>
+  <aside>
+    <h2 style="margin-top:0">Source text</h2>
+    <div class="card" id="unit"><div class="empty">Click a citation to read the exact provision.</div></div>
+  </aside>
+</main>
+<script>
+const EXAMPLES = {
+  eu_ai_law: [
+    "We use an AI system to rank job applicants. Is it high-risk, and what rights do candidates have under the GDPR?",
+    "What is the maximum fine for using a prohibited AI practice?",
+    "May a provider process ethnicity data to detect bias in a high-risk AI system?",
+    "What is the minimum wage in Germany?"
+  ]
+};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+
+async function loadCorpora() {
+  const list = await (await fetch("/api/corpora")).json();
+  $("corpus").innerHTML = list.map(c => `<option value="${esc(c.name)}">${esc(c.name)} (${c.units} units)</option>`).join("");
+  const showExamples = () => {
+    const c = list.find(x => x.name === $("corpus").value);
+    $("model").textContent = c ? `model: ${c.model}` : "";
+    $("examples").innerHTML = (EXAMPLES[$("corpus").value] || []).map(e => `<button>${esc(e)}</button>`).join("");
+    $("examples").querySelectorAll("button").forEach(b => b.onclick = () => { $("q").value = b.textContent; });
+  };
+  $("corpus").onchange = showExamples; showExamples();
+}
+
+function step(ev) {
+  const li = document.createElement("li");
+  li.className = ev.type + (ev.type === "validation" ? (ev.ok ? " ok" : " fail") : "");
+  const t = `<span class="t">${ev.t.toFixed(1)}s</span>`;
+  if (ev.type === "tool_call") li.innerHTML = `${t}<b>${esc(ev.name)}</b> <code>${esc(JSON.stringify(ev.args))}</code>`;
+  else if (ev.type === "tool_result") li.innerHTML = `${t}<span class="ids">${esc((ev.ids || []).join(", ") || "no units")}</span>`;
+  else if (ev.type === "validation") li.innerHTML = `${t}citation check: ${ev.ok ? "passed" : "failed: " + esc(ev.problems.join("; "))}`;
+  else if (ev.type === "repair") li.innerHTML = `${t}sent back to the model to fix`;
+  else if (ev.type === "nudge") li.innerHTML = `${t}model answered without searching: told to search first`;
+  else if (ev.type === "draft") li.innerHTML = `${t}draft answer written`;
+  else if (ev.type === "final") li.innerHTML = `${t}done: <b>${esc(ev.status)}</b>`;
+  else return;
+  $("steps").appendChild(li);
+}
+
+function renderAnswer(res) {
+  const html = esc(res.answer).replace(/\[([^\[\]\n]{2,140})\](?!\()/g, (m, id) => `<span class="cite" data-id="${id}">${id}</span>`);
+  $("answer").className = ""; $("answer").innerHTML = html;
+  $("answer").querySelectorAll(".cite").forEach(el => el.onclick = () => showUnit(el.dataset.id));
+  $("resmeta").innerHTML = `<span class="status ${res.status}">${res.status.replace("_", " ")}</span> &nbsp; ${res.seconds}s · ${res.model_calls} model calls · ${res.tool_calls} tool calls · ${res.prompt_tokens + res.output_tokens} tokens · mode: ${res.mode}`;
+}
+
+async function showUnit(id) {
+  const r = await fetch(`/api/unit?corpus=${encodeURIComponent($("corpus").value)}&id=${encodeURIComponent(id)}`);
+  if (!r.ok) { $("unit").innerHTML = `<div class="empty">${esc(id)} is not in the corpus.</div>`; return; }
+  const u = await r.json();
+  $("unit").innerHTML = `<h3>${esc(u.id)}</h3><div class="title">${esc(u.title)}</div><div class="text">${esc(u.text)}</div>` +
+    (u.refs.length ? `<div class="meta">Refers to: ${u.refs.map(x => `<span class="cite" data-id="${esc(x)}">${esc(x)}</span>`).join(" ")}</div>` : "");
+  $("unit").querySelectorAll(".cite").forEach(el => { el.style.cursor = "pointer"; el.onclick = () => showUnit(el.dataset.id); });
+}
+
+async function ask() {
+  const question = $("q").value.trim(); if (!question) return;
+  $("go").disabled = true; $("steps").innerHTML = ""; $("answer").className = "empty"; $("answer").textContent = "Working..."; $("resmeta").textContent = "";
+  try {
+    const resp = await fetch("/api/ask", { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ question, corpus: $("corpus").value, mode: $("mode").value }) });
+    const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        const kind = (chunk.match(/^event: (.*)$/m) || [])[1]; const data = JSON.parse((chunk.match(/^data: (.*)$/m) || [])[1] || "{}");
+        if (kind === "event") step(data);
+        else if (kind === "result") renderAnswer(data);
+        else if (kind === "error") { $("answer").textContent = "Error: " + data.message; }
+      }
+    }
+  } catch (e) { $("answer").textContent = "Error: " + e; }
+  $("go").disabled = false;
+}
+$("go").onclick = ask;
+$("q").addEventListener("keydown", e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) ask(); });
+loadCorpora();
+</script>
+</body>
+</html>

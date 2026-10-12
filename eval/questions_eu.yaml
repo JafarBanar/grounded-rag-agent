@@ -1,0 +1,29 @@
+# Evaluation set for the eu_ai_law corpus.
+# type: single (one provision), multi (several steps in one act), cross (both acts), out (not in the corpus)
+# gold: list of groups; a group is satisfied when the answer cites any listed id, or a paragraph/point inside it.
+# Gold ids were checked against the official texts. Written by the project author: treat scores as optimistic.
+questions:
+  - {id: s01, type: single, q: "How does the AI Act define an AI system?", gold: [["AI Act Art. 3(1)"]]}
+  - {id: s02, type: single, q: "Is it allowed to use AI to recognise the emotions of employees at work?", gold: [["AI Act Art. 5(1)(f)"]]}
+  - {id: s03, type: single, q: "What is the maximum fine for using a prohibited AI practice?", gold: [["AI Act Art. 99(3)"]]}
+  - {id: s04, type: single, q: "When does the GDPR require a data protection impact assessment?", gold: [["GDPR Art. 35"]]}
+  - {id: s05, type: single, q: "How quickly must a controller notify the supervisory authority of a personal data breach?", gold: [["GDPR Art. 33(1)"]]}
+  - {id: s06, type: single, q: "What makes consent valid under the GDPR?", gold: [["GDPR Art. 4(11)", "GDPR Art. 7"]]}
+  - {id: s07, type: single, q: "What must providers of chatbots tell the people who talk to them?", gold: [["AI Act Art. 50(1)"]]}
+  - {id: s08, type: single, q: "What information must providers of general-purpose AI models give to providers who build on their models?", gold: [["AI Act Art. 53(1)(b)", "AI Act Annex XII"]]}
+  - {id: s09, type: single, q: "From which date does the AI Act apply, and which parts apply earlier?", gold: [["AI Act Art. 113"]]}
+  - {id: s10, type: single, q: "When does a person have the right to have their personal data erased?", gold: [["GDPR Art. 17(1)"]]}
+  - {id: m01, type: multi, q: "Is an AI system that grades students' exams high-risk, and what risk management must its provider put in place?", gold: [["AI Act Annex III(3)"], ["AI Act Art. 9"]]}
+  - {id: m02, type: multi, q: "What must deployers of high-risk AI systems do about human oversight, and what must the system itself support?", gold: [["AI Act Art. 26(2)"], ["AI Act Art. 14"]]}
+  - {id: m03, type: multi, q: "A bank uses AI to assess the creditworthiness of customers. Is that high-risk, and must the bank carry out a fundamental rights impact assessment?", gold: [["AI Act Annex III(5)(b)"], ["AI Act Art. 27(1)"]]}
+  - {id: m04, type: multi, q: "What technical documentation must a provider of a high-risk AI system prepare, and what must it contain?", gold: [["AI Act Art. 11"], ["AI Act Annex IV"]]}
+  - {id: m05, type: multi, q: "Can an AI system listed in Annex III escape being classified as high-risk? Under what conditions?", gold: [["AI Act Art. 6(3)"]]}
+  - {id: m06, type: multi, q: "What logging must a high-risk AI system support, and how long must deployers keep the logs?", gold: [["AI Act Art. 12"], ["AI Act Art. 26(6)"]]}
+  - {id: x01, type: cross, q: "May a provider process sensitive personal data such as ethnicity to detect bias in a high-risk AI system, and how does the GDPR treat such data?", gold: [["AI Act Art. 10(5)"], ["GDPR Art. 9"]]}
+  - {id: x02, type: cross, q: "A person is affected by a decision made with a high-risk AI system. What rights do they have under the GDPR and under the AI Act?", gold: [["GDPR Art. 22", "GDPR Art. 15(1)(h)"], ["AI Act Art. 86"]]}
+  - {id: x03, type: cross, q: "Is real-time remote biometric identification by the police allowed, and how does the GDPR classify biometric data?", gold: [["AI Act Art. 5(1)(h)"], ["GDPR Art. 9(1)", "GDPR Art. 4(14)"]]}
+  - {id: x04, type: cross, q: "How does the AI Act define personal data, and what is the original definition it relies on?", gold: [["AI Act Art. 3(50)"], ["GDPR Art. 4(1)"]]}
+  - {id: o01, type: out, q: "What VAT rate applies to software sales in Sweden?", expect: not_found}
+  - {id: o02, type: out, q: "What is the minimum wage in Germany?", expect: not_found}
+  - {id: o03, type: out, q: "How many days of paid annual leave are workers entitled to under EU law?", expect: not_found}
+  - {id: o04, type: out, q: "Which court in Gothenburg handles traffic offences?", expect: not_found}

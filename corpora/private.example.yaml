@@ -1,0 +1,14 @@
+# Copy to corpora/private.yaml (git-ignored) and point it at your own documents.
+# Everything runs locally: the files and the index never leave your machine.
+name: private
+description: >-
+  My own career and research documents: CV, project descriptions, papers and thesis drafts.
+citation_example: "[master-cv.md §Experience]"
+sources:
+  - {path: ~/Documents/career, doc: "Career", kind: files}
+  - {path: ~/Documents/papers, doc: "Papers", kind: files}
+index_dir: data/index/private
+model: gemma4:e4b
+embed_model: embeddinggemma
+extra_rules:
+  - "Only state experience, skills and results that the documents show. If something is not in the documents, say it is not supported."
