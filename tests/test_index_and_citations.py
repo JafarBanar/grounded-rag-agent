@@ -70,3 +70,8 @@ def test_multi_id_brackets_are_checked_one_by_one(index):
 def test_stemming_matches_word_forms():
     from grounded_agent.index import stem
     assert stem("application") == stem("applies") == stem("applied") == "apply"
+
+
+def test_gap_statement_needs_no_citation(index):
+    ans = "Annex III systems are high-risk [AI Act Art. 6(2)]. Not shown in the documents: whether fees apply."
+    assert check(ans, index, {"AI Act Art. 6(2)"}, 1.0)["ok"]

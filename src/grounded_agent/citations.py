@@ -85,10 +85,19 @@ def allowed_ids(index: HybridIndex, retrieved: set[str]) -> set[str]:
     return allowed
 
 
+GAP = "Not shown in the documents:"
+_GAP_RE = re.compile(r"(?:^|(?<=[.!?\n]))\s*[*-]?\s*Not shown in the documents:[^\n]*", re.IGNORECASE)
+
+
+def strip_gap_statements(text: str) -> str:
+    """Remove explicit gap sentences, which state what the documents do NOT show and so cannot carry a citation."""
+    return _GAP_RE.sub("", text)
+
+
 def check(answer: str, index: HybridIndex, retrieved: set[str], min_coverage: float = 0.8) -> dict:
     """Return a report dict: ok flag, problems, cited ids, invented ids, coverage."""
     allowed = allowed_ids(index, retrieved)
-    answer = expand_multi_citations(answer, sorted({u.doc for u in index.units}))
+    answer = strip_gap_statements(expand_multi_citations(answer, sorted({u.doc for u in index.units})))
     report = validate(protect_citations(answer), [canon(a) for a in allowed], pattern=BRACKET, min_coverage=min_coverage)
     known = {canon(u.id) for u in index.units}
     invented = [r for r in report.cited_refs if r not in known]

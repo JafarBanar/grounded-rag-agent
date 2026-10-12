@@ -32,6 +32,7 @@ class CorpusConfig:
     min_coverage: float = 0.8
     repair_attempts: int = 1
     plan: bool = True
+    verify: bool = False      # claim check: model judges each cited sentence against its source text
     extra_rules: list[str] = field(default_factory=list)
 
     @classmethod

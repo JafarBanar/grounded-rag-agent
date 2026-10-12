@@ -63,19 +63,36 @@ def load_markdown(path: Path, doc: str) -> list[Unit]:
 
 
 def load_docx(path: Path, doc: str) -> list[Unit]:
+    """Walk the Word body in document order, so tables stay in the section where they appear."""
     import docx  # python-docx
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
     d = docx.Document(str(path))
     units, heading, buf = [], "Start", []
-    for p in d.paragraphs:
-        style = (p.style.name or "").lower() if p.style is not None else ""
-        if style.startswith("heading") or style == "title":
-            units += _split_long(f"{path.name} §{heading}", doc, "section", heading, " ".join(buf), path.name)
-            heading, buf = p.text.strip() or heading, []
-        elif p.text.strip():
-            buf.append(p.text.strip())
-    for t in d.tables:
-        rows = [" | ".join(c.text.strip() for c in r.cells) for r in t.rows]
-        buf.append(" ; ".join(rows))
+    for child in d.element.body.iterchildren():
+        tag = child.tag.rsplit("}", 1)[-1]
+        if tag == "p":
+            p = Paragraph(child, d)
+            style = (p.style.name or "").lower() if p.style is not None else ""
+            if style.startswith("heading") or style == "title":
+                units += _split_long(f"{path.name} §{heading}", doc, "section", heading, " ".join(buf), path.name)
+                heading, buf = p.text.strip() or heading, []
+            elif p.text.strip():
+                buf.append(p.text.strip())
+        elif tag == "tbl":
+            t = Table(child, d)
+            rows = []
+            for r in t.rows:
+                cells = []
+                for c in r.cells:
+                    txt = c.text.strip()
+                    if txt and (not cells or cells[-1] != txt):   # merged cells repeat their text
+                        cells.append(txt)
+                if cells:
+                    rows.append(" | ".join(cells))
+            if rows:
+                buf.append(" ; ".join(rows))
     units += _split_long(f"{path.name} §{heading}", doc, "section", heading, " ".join(buf), path.name)
     return units
 

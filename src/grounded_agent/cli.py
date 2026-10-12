@@ -29,6 +29,7 @@ def cmd_ask(a):
     if a.model:
         cfg.model = a.model
     cfg.think = a.think or cfg.think
+    cfg.verify = a.verify or cfg.verify
     system = Workflow(cfg) if a.workflow else Agent(cfg)
 
     def show(ev):
@@ -38,6 +39,10 @@ def cmd_ask(a):
             print(f"  [{ev['t']:5.1f}s] {ev['name']}({json.dumps(ev['args'], ensure_ascii=False)})", file=sys.stderr)
         elif ev["type"] == "tool_result":
             print(f"           -> {', '.join(ev['ids'][:6]) or '(no units)'}", file=sys.stderr)
+        elif ev["type"] == "plan":
+            print(f"  [{ev['t']:5.1f}s] plan: {'; '.join(ev['queries'])}", file=sys.stderr)
+        elif ev["type"] == "verify":
+            print(f"  [{ev['t']:5.1f}s] claim check: {'passed' if ev['ok'] else 'failed: ' + '; '.join(ev['problems'])}", file=sys.stderr)
         elif ev["type"] in ("nudge", "repair"):
             print(f"  [{ev['t']:5.1f}s] {ev['type']}: {'; '.join(ev.get('problems', [])) or 'search first'}", file=sys.stderr)
 
@@ -54,6 +59,7 @@ def cmd_eval(a):
     if a.model:
         cfg.model = a.model
     cfg.think = a.think or cfg.think
+    cfg.verify = a.verify or cfg.verify
     out = Path(a.out or ROOT / "eval" / "results" / cfg.name)
     rep = run_eval(cfg, Path(a.questions), out, modes=tuple(a.modes.split(",")))
     print((out / "report.md").read_text())
@@ -77,10 +83,12 @@ def main(argv=None):
     b.add_argument("corpus"); b.add_argument("--no-embed", action="store_true"); b.set_defaults(fn=cmd_build)
     q = sub.add_parser("ask", help="ask one question")
     q.add_argument("corpus"); q.add_argument("question"); q.add_argument("--workflow", action="store_true", help="use retrieve-once RAG instead of the agent")
-    q.add_argument("--model"); q.add_argument("--think", action="store_true"); q.add_argument("--quiet", action="store_true"); q.set_defaults(fn=cmd_ask)
+    q.add_argument("--model"); q.add_argument("--think", action="store_true"); q.add_argument("--quiet", action="store_true")
+    q.add_argument("--verify", action="store_true", help="also check each cited sentence against its source text"); q.set_defaults(fn=cmd_ask)
     e = sub.add_parser("eval", help="run the evaluation set")
     e.add_argument("corpus"); e.add_argument("--questions", default=str(ROOT / "eval" / "questions_eu.yaml"))
     e.add_argument("--modes", default="agent,workflow"); e.add_argument("--model"); e.add_argument("--think", action="store_true"); e.add_argument("--out")
+    e.add_argument("--verify", action="store_true")
     e.set_defaults(fn=cmd_eval)
     s = sub.add_parser("serve", help="web UI and API")
     s.add_argument("--corpus", default="eu_ai_law"); s.add_argument("--host", default="127.0.0.1"); s.add_argument("--port", type=int, default=8000); s.set_defaults(fn=cmd_serve)

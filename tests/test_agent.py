@@ -83,3 +83,17 @@ def test_plan_step_adds_search_plan(cfg, index):
     assert res.status == "answered"
     assert any(e["type"] == "plan" and len(e["queries"]) == 2 for e in res.events)
     assert "Search plan" in client.seen[1]["content"]
+
+
+def test_claim_check_sends_unsupported_sentence_back(cfg, index):
+    cfg.verify = True
+    res, client = run(cfg, index, [
+        [call("read", id="AI Act Art. 6")],
+        "Annex III systems are high-risk and must pay a fee of 500 euro [AI Act Art. 6(2)].",
+        '{"verdicts": [{"claim": 1, "supported": false, "reason": "the fee is not in the source"}]}',
+        "Annex III systems are high-risk [AI Act Art. 6(2)].",
+        '{"verdicts": [{"claim": 1, "supported": true, "reason": "stated in the source"}]}',
+    ])
+    assert res.status == "answered"
+    assert any(e["type"] == "verify" and not e["ok"] for e in res.events)
+    assert "not supported by its cited source" in client.seen[3]["content"]

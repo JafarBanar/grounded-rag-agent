@@ -38,3 +38,20 @@ def test_find_refs_maps_other_acts():
     assert find_refs("Article 9(1) of Regulation (EU) 2016/679", "AI Act")[0] == "GDPR Art. 9(1)"
     assert find_refs("Articles 9 to 11 apply", "AI Act") == ["AI Act Art. 9", "AI Act Art. 10", "AI Act Art. 11"]
     assert find_refs("Article 5 of Directive (EU) 2019/882", "AI Act") == []          # act outside the corpus
+
+
+def test_docx_tables_stay_in_their_section(tmp_path):
+    import docx
+    from grounded_agent.ingest.files import load_docx
+    d = docx.Document()
+    d.add_heading("Project A", level=2)
+    d.add_paragraph("Problem and solution text for project A.")
+    t = d.add_table(rows=1, cols=2)
+    t.cell(0, 0).text, t.cell(0, 1).text = "Role", "Team project; my part was the upload API."
+    d.add_heading("Project B", level=2)
+    d.add_paragraph("Text for project B.")
+    path = tmp_path / "book.docx"
+    d.save(path)
+    units = {u.id: u.text for u in load_docx(path, "Career")}
+    assert "my part was the upload API" in units["book.docx §Project A"]
+    assert "upload API" not in units["book.docx §Project B"]
