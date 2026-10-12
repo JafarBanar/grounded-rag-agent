@@ -16,7 +16,7 @@ class FakeClient:
         self.seen = []
         self.embed = None
 
-    def chat(self, messages, tools=None):
+    def chat(self, messages, tools=None, format=None):
         self.seen.append(messages[-1])
         r = self.replies.pop(0)
         if isinstance(r, list):
@@ -71,3 +71,15 @@ def test_unknown_id_suggests_alternatives(cfg, index):
     text, shown = Toolbox(index).read("AI Act Art. 77")
     assert text.startswith("Unknown id") and shown == []
     assert Toolbox(index).resolve_id("Article 6(2) AI Act") == "AI Act Art. 6(2)"
+
+
+def test_plan_step_adds_search_plan(cfg, index):
+    cfg.plan = True
+    res, client = run(cfg, index, [
+        '{"queries": ["recruitment AI high-risk", "classification rules"]}',
+        [call("search", query="recruitment AI high-risk")],
+        "Recruitment AI is listed in Annex III [AI Act Annex III(2)(a)].",
+    ])
+    assert res.status == "answered"
+    assert any(e["type"] == "plan" and len(e["queries"]) == 2 for e in res.events)
+    assert "Search plan" in client.seen[1]["content"]

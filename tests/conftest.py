@@ -28,4 +28,4 @@ def index(units):
 def cfg(tmp_path):
     return CorpusConfig(name="test", description="A test act.", citation_example="[AI Act Art. 6(2)]",
                         sources=[Source(path=str(FIXTURE), doc="AI Act", kind="eurlex")], index_dir=tmp_path,
-                        min_coverage=1.0, repair_attempts=1)
+                        min_coverage=1.0, repair_attempts=1, plan=False)

@@ -28,7 +28,7 @@ _PARA_ID = re.compile(r"^(\d{3})\.(\d{3})$")
 _POINT_START = re.compile(r"^\((\d+)\)\s")          # definition points "(1) 'AI system' means ..."
 _ANNEX_POINT = re.compile(r"^(\d+)\.\s+\S")          # annex points "4. Employment, ..."
 _LETTER = re.compile(r"(?:^|\s)\(([a-z])\)\s")       # lettered points "(a) ..."
-LONG_UNIT = 600                                        # split units longer than this into lettered points
+LONG_UNIT = 0                                          # split any unit with lettered points (a), (b), ...
 
 
 def _clean(text: str) -> str:
@@ -157,9 +157,10 @@ def parse_act(path: Path, doc: str) -> list[Unit]:
                 units.append(Unit(id=f"{anx_id}({n})", doc=doc, kind="point", title=title, text=t, parent=anx_id, source=src))
         units.append(Unit(id=anx_id, doc=doc, kind="annex", title=title, text=" ".join(blocks[1:]), source=src))
 
+    has_children = {u.parent for u in units if u.parent}
     extra: list[Unit] = []
     for u in units:
-        if u.kind in ("paragraph", "point"):
+        if u.kind in ("paragraph", "point") or (u.kind == "article" and u.id not in has_children):
             extra.extend(split_letters(u))
     units.extend(extra)
     for u in units:

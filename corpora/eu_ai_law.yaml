@@ -10,5 +10,6 @@ sources:
   - {path: data/raw/32016R0679.xhtml, doc: "GDPR", kind: eurlex}
 model: gemma4:e4b
 embed_model: embeddinggemma
+repair_attempts: 2
 extra_rules:
   - "Recitals explain intent but do not create obligations; prefer articles and annexes when stating what the law requires."

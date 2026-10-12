@@ -37,6 +37,12 @@ Rules:
 
 Event = dict
 
+PLAN_PROMPT = """Split this question into the separate things that must be looked up in the documents ({docs}).
+Return 1 to 4 short search queries, one per thing, using the words the law itself would likely use.
+Question: {question}"""
+PLAN_SCHEMA = {"type": "object", "properties": {"queries": {"type": "array", "items": {"type": "string"},
+               "minItems": 1, "maxItems": 4}}, "required": ["queries"]}
+
 
 @dataclass
 class Result:
@@ -88,8 +94,16 @@ class Agent:
             if on_event:
                 on_event(ev)
 
+        user_msg = question
+        if self.cfg.plan:
+            plan = self.plan(question, tools.docs)
+            res.model_calls += 1
+            if plan:
+                emit({"type": "plan", "queries": plan})
+                user_msg = (f"{question}\n\nSearch plan (search each of these, then read what you rely on): "
+                            + "; ".join(f'"{q}"' for q in plan))
         messages = [{"role": "system", "content": system_prompt(self.cfg)},
-                    {"role": "user", "content": question}]
+                    {"role": "user", "content": user_msg}]
         repairs_left = self.cfg.repair_attempts
         answer = ""
         nudged = False
@@ -165,6 +179,20 @@ class Agent:
         res.seconds = round(time.perf_counter() - t0, 2)
         emit({"type": "final", "status": res.status})
         return res
+
+
+def _plan(self, question: str, docs: list[str]) -> list[str]:
+    """Plan-and-execute: ask for the sub-questions as structured JSON before the tool loop."""
+    try:
+        r = self.client.chat([{"role": "user", "content": PLAN_PROMPT.format(docs=", ".join(docs), question=question)}],
+                             format=PLAN_SCHEMA)
+        queries = json.loads(r.content).get("queries", [])
+        return [q.strip() for q in queries if isinstance(q, str) and q.strip()][:4]
+    except Exception:
+        return []
+
+
+Agent.plan = _plan
 
 
 def save_trace(res: Result, folder: Path) -> Path:

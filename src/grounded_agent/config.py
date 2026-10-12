@@ -31,6 +31,7 @@ class CorpusConfig:
     max_tool_calls: int = 12
     min_coverage: float = 0.8
     repair_attempts: int = 1
+    plan: bool = True
     extra_rules: list[str] = field(default_factory=list)
 
     @classmethod

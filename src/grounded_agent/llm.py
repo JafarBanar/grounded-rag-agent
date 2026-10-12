@@ -35,13 +35,15 @@ class OllamaClient:
         self.num_ctx = num_ctx
         self.http = httpx.Client(timeout=timeout)
 
-    def chat(self, messages: list[dict], tools: list[dict] | None = None) -> ChatResult:
+    def chat(self, messages: list[dict], tools: list[dict] | None = None, format: dict | None = None) -> ChatResult:
         payload = {
             "model": self.model, "messages": messages, "stream": False, "think": self.think,
             "options": {"temperature": self.temperature, "num_ctx": self.num_ctx},
         }
         if tools:
             payload["tools"] = tools
+        if format:
+            payload["format"] = format          # JSON schema: Ollama structured outputs
         t0 = time.perf_counter()
         r = self.http.post(f"{self.url}/api/chat", json=payload)
         r.raise_for_status()
